@@ -31,6 +31,6 @@ async function bootstrap() {
 	})
 
 	// Запуск приложения на порту 3000
-	await app.listen(config.getOrThrow<number>('PORT'))
+	await app.listen(config.getOrThrow<number>('APPLICATION_PORT'))
 }
 bootstrap()
