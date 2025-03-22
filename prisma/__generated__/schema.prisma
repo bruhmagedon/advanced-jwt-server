@@ -1,0 +1,96 @@
+// Определение генератора клиента Prisma
+// Это указывает Prisma, как генерировать клиентский код для взаимодействия с базой данных
+generator client {
+  provider = "prisma-client-js" // Использование JavaScript/TypeScript клиента
+  output   = "./__generated__" // Путь, куда будет сгенерирован клиентский код
+}
+
+// Настройка источника данных (базы данных)
+datasource db {
+  provider = "postgresql" // Тип используемой БД (PostgreSQL)
+  url      = env("POSTGRES_URI") // URL-подключение к БД, берется из переменных окружения
+}
+
+// Модель пользователя - будет создана таблица "users" в базе данных
+model User {
+  id String @id @default(uuid()) // Уникальный идентификатор пользователя, генерируется автоматически
+
+  email    String @unique // Уникальный email пользователя (не может повторяться)
+  password String // Пароль пользователя (хранится в зашифрованном виде)
+
+  displayName String // Отображаемое имя пользователя
+  picture     String? // Ссылка на аватар (необязательное поле, может быть null)
+
+  role UserRole @default(REGULAR) // Роль пользователя, по умолчанию REGULAR (из enum UserRole)
+
+  // Флаги для аутентификации и безопасности
+  isVerified         Boolean @default(false) @map("is_verified") // Подтвержден ли email
+  isTwoFactorEnabled Boolean @default(false) @map("is_two_factor_enabled") // Включена ли двухфакторная аутентификация
+
+  method AuthMethod // Метод аутентификации пользователя (из enum AuthMethod)
+
+  accounts Account[] // Связь с моделью Account (один пользователь может иметь несколько аккаунтов)
+
+  // Метаданные о времени создания и обновления записи
+  createdAt DateTime @default(now()) @map("created_at") // Дата создания записи
+  updatedAt DateTime @updatedAt @map("updated_at") // Дата последнего обновления
+
+  @@map("users") // Указывает имя таблицы в базе данных
+}
+
+// Модель аккаунта - для хранения данных о внешних провайдерах аутентификации (OAuth)
+model Account {
+  id String @id @default(uuid()) // Уникальный идентификатор аккаунта
+
+  type     String // Тип аккаунта
+  provider String // Провайдер аутентификации (Google, Yandex и т.д.)
+
+  // Токены для OAuth аутентификации
+  refreshToken String? @map("refresh_token") // Токен обновления (необязательное поле)
+  accessToken  String? @map("access_token") // Токен доступа (необязательное поле)
+  expiresAt    Int     @map("expires_at") // Время истечения токена в секундах
+
+  // Метаданные о времени создания и обновления записи
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Связь с пользователем (многие к одному)
+  user   User?   @relation(fields: [userId], references: [id]) // Связь с моделью User
+  userId String? @map("user_id") // Внешний ключ, ссылающийся на id пользователя
+
+  @@map("accounts") // Указывает имя таблицы в базе данных
+}
+
+// Модель токена - для хранения временных токенов (верификация, сброс пароля и т.д.)
+model Token {
+  id String @id @default(uuid()) // Уникальный идентификатор токена
+
+  email     String // Email пользователя, для которого создан токен
+  token     String    @unique // Сам токен (уникальный)
+  type      TokenType // Тип токена (из enum TokenType)
+  expiresIn DateTime  @map("expires_in") // Время истечения токена
+
+  createdAt DateTime @default(now()) @map("created_at") // Дата создания токена
+
+  @@map("tokens") // Указывает имя таблицы в базе данных
+}
+
+// Перечисление ролей пользователя
+enum UserRole {
+  REGULAR // Обычный пользователь
+  ADMIN // Администратор
+}
+
+// Перечисление методов аутентификации
+enum AuthMethod {
+  CREDENTIALS // Обычная аутентификация по email/паролю
+  GOOGLE // Аутентификация через Google
+  YANDEX // Аутентификация через Яндекс
+}
+
+// Перечисление типов токенов
+enum TokenType {
+  VERIFICATION // Токен для подтверждения email
+  TWO_FACTOR // Токен для двухфакторной аутентификации
+  PASSWORD_RESET // Токен для сброса пароля
+}
